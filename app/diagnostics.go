@@ -295,6 +295,9 @@ func trackConfig() {
 		"enable_gitlab":    utils.Cfg.GitLabSettings.Enable,
 		"enable_google":    utils.Cfg.GoogleSettings.Enable,
 		"enable_office365": utils.Cfg.Office365Settings.Enable,
+		
+		"enable_wechat":    utils.Cfg.WeChatSettings.Enable,		
+	
 	})
 
 	SendDiagnostic(TRACK_CONFIG_SUPPORT, map[string]interface{}{

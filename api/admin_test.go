@@ -91,6 +91,11 @@ func TestGetConfig(t *testing.T) {
 		if cfg.GitLabSettings.Secret != model.FAKE_SETTING && len(cfg.GitLabSettings.Secret) != 0 {
 			t.Fatal("did not sanitize properly")
 		}
+
+		if cfg.WeChatSettings.Secret != model.FAKE_SETTING && len(cfg.WeChatSettings.Secret) != 0 {
+			t.Fatal("did not sanitize properly")
+		}
+				
 		if cfg.SqlSettings.DataSource != model.FAKE_SETTING {
 			t.Fatal("did not sanitize properly")
 		}

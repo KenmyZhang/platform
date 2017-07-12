@@ -284,7 +284,13 @@ func CreateOAuthUser(service string, userData io.Reader, teamId string) (*model.
 		}
 	}
 
-	user.EmailVerified = true
+
+	if service == "wechat" {
+		user.EmailVerified = false
+	} else {
+		user.EmailVerified = true		
+	}
+
 
 	ruser, err := CreateUser(user)
 	if err != nil {
