@@ -429,7 +429,7 @@ func completeOAuth(c *Context, w http.ResponseWriter, r *http.Request) {
 
 		c.Session = *session
 
-//		redirectUrl = utils.GetSiteURL()		
+		redirectUrl = utils.GetSiteURL()		
 	}
 
 	if action == model.OAUTH_ACTION_MOBILE {
