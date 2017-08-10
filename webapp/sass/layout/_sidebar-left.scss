@@ -37,7 +37,7 @@
 
     .sidebar-item__name {
         display: inline-block;
-        max-width: 167px;
+        max-width: 160px;
         overflow: hidden;
         text-overflow: ellipsis;
         vertical-align: top;
@@ -81,8 +81,8 @@
             @include single-transition(all, .15s, ease-in);
             display: block;
             font-weight: 600;
-            height: 50px;
-            line-height: 50px;
+            height: 45px;
+            line-height: 40px;
             padding: 0;
             text-decoration: none;
             width: 100%;
@@ -144,7 +144,7 @@
 
     .nav-pills__container {
         -webkit-overflow-scrolling: touch;
-        height: calc(100% - 120px);
+        height: calc(100% - 115px);
         overflow: auto;
         position: relative;
     }
@@ -154,15 +154,25 @@
         font-size: 13.5px;
         left: 15px;
         margin: 0 auto;
-        padding: 3px 0 4px;
+        padding: 4px 0 3px;
         position: fixed;
         text-align: center;
         width: 190px;
         z-index: 1;
+
+        .icon {
+            margin-left: 5px;
+        }
     }
 
     .nav-pills__unread-indicator-top {
         top: 80px;
+
+        .icon {
+            svg {
+                @include transform(rotate(180deg));
+            }
+        }
     }
 
     .nav-pills__unread-indicator-bottom {
@@ -215,6 +225,10 @@
 
                 &.has-close {
                     &:hover {
+                        .sidebar-item__name {
+                            max-width: 152px;
+                        }
+
                         .btn-close {
                             @include opacity(.8);
                             display: block;
@@ -228,7 +242,7 @@
                         font-size: 21px;
                         font-weight: 600;
                         position: absolute;
-                        right: 18px;
+                        right: 15px;
                         top: 0px;
 
                         &:hover {

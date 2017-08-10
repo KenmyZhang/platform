@@ -67,7 +67,7 @@ func TestCheckUserDomain(t *testing.T) {
 func TestCreateOAuthUser(t *testing.T) {
 	th := Setup().InitBasic()
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	glUser := oauthgitlab.GitLabUser{Id: int64(r.Intn(1000)), Username: model.NewId(), Email: model.NewId() + "@simulator.amazonses.com", Name: "Joram Wilander"}
+	glUser := oauthgitlab.GitLabUser{Id: int64(r.Intn(1000)) + 1, Username: "o" + model.NewId(), Email: model.NewId() + "@simulator.amazonses.com", Name: "Joram Wilander"}
 
 	json := glUser.ToJson()
 	user, err := CreateOAuthUser(model.USER_AUTH_SERVICE_GITLAB, strings.NewReader(json), th.BasicTeam.Id)
@@ -247,7 +247,7 @@ func getGitlabUserPayload(gitlabUser oauthgitlab.GitLabUser, t *testing.T) []byt
 
 func createGitlabUser(t *testing.T, email string, username string) (*model.User, oauthgitlab.GitLabUser) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	gitlabUserObj := oauthgitlab.GitLabUser{Id: int64(r.Intn(1000)), Username: username, Login: "user1", Email: email, Name: "Test User"}
+	gitlabUserObj := oauthgitlab.GitLabUser{Id: int64(r.Intn(1000)) + 1, Username: username, Login: "user1", Email: email, Name: "Test User"}
 	gitlabUser := getGitlabUserPayload(gitlabUserObj, t)
 
 	var user *model.User

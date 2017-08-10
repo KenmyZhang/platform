@@ -55,10 +55,12 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
     }
 
     componentWillReceiveProps(nextProps) {
-        this.setState({
-            embedVisible: nextProps.previewCollapsed.startsWith('false'),
-            link: Utils.extractFirstLink(nextProps.post.message)
-        });
+        if (nextProps.previewCollapsed !== this.props.previewCollapsed || nextProps.post.message !== this.props.post.message) {
+            this.setState({
+                embedVisible: nextProps.previewCollapsed.startsWith('false'),
+                link: Utils.extractFirstLink(nextProps.post.message)
+            });
+        }
     }
 
     toggleEmbedVisibility() {
@@ -160,6 +162,7 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
                 <PostAttachmentOpenGraph
                     link={link}
                     previewCollapsed={this.props.previewCollapsed}
+                    post={this.props.post}
                 />
             );
         }
@@ -189,7 +192,7 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
             );
 
             const contents = [message];
-            if (this.state.linkLoaded) {
+            if (this.state.linkLoaded || this.props.previewCollapsed.startsWith('true')) {
                 if (prependToggle) {
                     contents.unshift(toggle);
                 } else {

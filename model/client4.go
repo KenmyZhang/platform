@@ -70,6 +70,10 @@ func (c *Client4) GetUserRoute(userId string) string {
 	return fmt.Sprintf(c.GetUsersRoute()+"/%v", userId)
 }
 
+func (c *Client4) GetUserAccessTokenRoute(tokenId string) string {
+	return fmt.Sprintf(c.GetUsersRoute()+"/tokens/%v", tokenId)
+}
+
 func (c *Client4) GetUserByUsernameRoute(userName string) string {
 	return fmt.Sprintf(c.GetUsersRoute()+"/username/%v", userName)
 }
@@ -352,7 +356,7 @@ func (c *Client4) DoEmojiUploadFile(url string, data []byte, contentType string)
 	}
 }
 
-func (c *Client4) DoUploadImportTeam(url string, data []byte, contentType string) ([]byte, *Response) {
+func (c *Client4) DoUploadImportTeam(url string, data []byte, contentType string) (map[string]string, *Response) {
 	rq, _ := http.NewRequest("POST", c.ApiUrl+url, bytes.NewReader(data))
 	rq.Header.Set("Content-Type", contentType)
 	rq.Close = true
@@ -365,11 +369,9 @@ func (c *Client4) DoUploadImportTeam(url string, data []byte, contentType string
 		return nil, &Response{Error: NewAppError(url, "model.client.connecting.app_error", nil, err.Error(), 0)}
 	} else if rp.StatusCode >= 300 {
 		return nil, &Response{StatusCode: rp.StatusCode, Error: AppErrorFromJson(rp.Body)}
-	} else if data, err := ioutil.ReadAll(rp.Body); err != nil {
-		return nil, &Response{StatusCode: rp.StatusCode, Error: NewAppError("UploadImportTeam", "model.client.read_file.app_error", nil, err.Error(), rp.StatusCode)}
 	} else {
 		defer closeBody(rp)
-		return data, BuildResponse(rp)
+		return MapFromJson(rp.Body), BuildResponse(rp)
 	}
 }
 
@@ -959,6 +961,60 @@ func (c *Client4) SetProfileImage(userId string, data []byte) (bool, *Response) 
 	}
 }
 
+// CreateUserAccessToken will generate a user access token that can be used in place
+// of a session token to access the REST API. Must have the 'create_user_access_token'
+// permission and if generating for another user, must have the 'edit_other_users'
+// permission. A non-blank description is required.
+func (c *Client4) CreateUserAccessToken(userId, description string) (*UserAccessToken, *Response) {
+	requestBody := map[string]string{"description": description}
+	if r, err := c.DoApiPost(c.GetUserRoute(userId)+"/tokens", MapToJson(requestBody)); err != nil {
+		return nil, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return UserAccessTokenFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// GetUserAccessToken will get a user access token's id, description and the user_id
+// of the user it is for. The actual token will not be returned. Must have the
+// 'read_user_access_token' permission and if getting for another user, must have the
+// 'edit_other_users' permission.
+func (c *Client4) GetUserAccessToken(tokenId string) (*UserAccessToken, *Response) {
+	if r, err := c.DoApiGet(c.GetUserAccessTokenRoute(tokenId), ""); err != nil {
+		return nil, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return UserAccessTokenFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// GetUserAccessTokensForUser will get a paged list of user access tokens showing id,
+// description and user_id for each. The actual tokens will not be returned. Must have
+// the 'read_user_access_token' permission and if getting for another user, must have the
+// 'edit_other_users' permission.
+func (c *Client4) GetUserAccessTokensForUser(userId string, page, perPage int) ([]*UserAccessToken, *Response) {
+	query := fmt.Sprintf("?page=%v&per_page=%v", page, perPage)
+	if r, err := c.DoApiGet(c.GetUserRoute(userId)+"/tokens"+query, ""); err != nil {
+		return nil, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return UserAccessTokenListFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// RevokeUserAccessToken will revoke a user access token by id. Must have the
+// 'revoke_user_access_token' permission and if revoking for another user, must have the
+// 'edit_other_users' permission.
+func (c *Client4) RevokeUserAccessToken(tokenId string) (bool, *Response) {
+	requestBody := map[string]string{"token_id": tokenId}
+	if r, err := c.DoApiPost(c.GetUsersRoute()+"/tokens/revoke", MapToJson(requestBody)); err != nil {
+		return false, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return CheckStatusOK(r), BuildResponse(r)
+	}
+}
+
 // Team Section
 
 // CreateTeam creates a team in the system based on the provided team struct.
@@ -1210,7 +1266,7 @@ func (c *Client4) GetTeamUnread(teamId, userId string) (*TeamUnread, *Response) 
 }
 
 // ImportTeam will import an exported team from other app into a existing team.
-func (c *Client4) ImportTeam(data []byte, filesize int, importFrom, filename, teamId string) ([]byte, *Response) {
+func (c *Client4) ImportTeam(data []byte, filesize int, importFrom, filename, teamId string) (map[string]string, *Response) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -1651,7 +1707,7 @@ func (c *Client4) GetFlaggedPostsForUserInTeam(userId string, teamId string, pag
 		return nil, &Response{StatusCode: http.StatusBadRequest, Error: NewAppError("GetFlaggedPostsForUserInTeam", "model.client.get_flagged_posts_in_team.missing_parameter.app_error", nil, "", http.StatusBadRequest)}
 	}
 
-	query := fmt.Sprintf("?in_team=%v&page=%v&per_page=%v", teamId, page, perPage)
+	query := fmt.Sprintf("?team_id=%v&page=%v&per_page=%v", teamId, page, perPage)
 	if r, err := c.DoApiGet(c.GetUserRoute(userId)+"/posts/flagged"+query, ""); err != nil {
 		return nil, BuildErrorResponse(r, err)
 	} else {
@@ -1666,7 +1722,7 @@ func (c *Client4) GetFlaggedPostsForUserInChannel(userId string, channelId strin
 		return nil, &Response{StatusCode: http.StatusBadRequest, Error: NewAppError("GetFlaggedPostsForUserInChannel", "model.client.get_flagged_posts_in_channel.missing_parameter.app_error", nil, "", http.StatusBadRequest)}
 	}
 
-	query := fmt.Sprintf("?in_channel=%v&page=%v&per_page=%v", channelId, page, perPage)
+	query := fmt.Sprintf("?channel_id=%v&page=%v&per_page=%v", channelId, page, perPage)
 	if r, err := c.DoApiGet(c.GetUserRoute(userId)+"/posts/flagged"+query, ""); err != nil {
 		return nil, BuildErrorResponse(r, err)
 	} else {
@@ -1811,7 +1867,7 @@ func (c *Client4) GetFileInfosForPost(postId string, etag string) ([]*FileInfo, 
 
 // GetPing will return ok if the running goRoutines are below the threshold and unhealthy for above.
 func (c *Client4) GetPing() (string, *Response) {
-	if r, err := c.DoApiGet(c.GetSystemRoute()+"/ping", ""); r.StatusCode == 500 {
+	if r, err := c.DoApiGet(c.GetSystemRoute()+"/ping", ""); r != nil && r.StatusCode == 500 {
 		defer r.Body.Close()
 		return "unhealthy", BuildErrorResponse(r, err)
 	} else if err != nil {
@@ -2553,6 +2609,16 @@ func (c *Client4) TestElasticsearch() (bool, *Response) {
 	}
 }
 
+// PurgeElasticsearchIndexes immediately deletes all Elasticsearch indexes.
+func (c *Client4) PurgeElasticsearchIndexes() (bool, *Response) {
+	if r, err := c.DoApiPost(c.GetElasticsearchRoute()+"/test", ""); err != nil {
+		return false, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return CheckStatusOK(r), BuildResponse(r)
+	}
+}
+
 // Commands Section
 
 // CreateCommand will create a new command if the user have the right permissions.
@@ -2792,7 +2858,7 @@ func (c *Client4) OpenGraph(url string) (map[string]string, *Response) {
 
 // GetJob gets a single job.
 func (c *Client4) GetJob(id string) (*Job, *Response) {
-	if r, err := c.DoApiGet(c.GetJobsRoute()+fmt.Sprintf("/%v/status", id), ""); err != nil {
+	if r, err := c.DoApiGet(c.GetJobsRoute()+fmt.Sprintf("/%v", id), ""); err != nil {
 		return nil, BuildErrorResponse(r, err)
 	} else {
 		defer closeBody(r)
@@ -2800,12 +2866,42 @@ func (c *Client4) GetJob(id string) (*Job, *Response) {
 	}
 }
 
-// GetJobsByType gets all jobs of a given type, sorted with the job that most recently started first.
-func (c *Client4) GetJobsByType(jobType string, page int, perPage int) ([]*Job, *Response) {
-	if r, err := c.DoApiGet(c.GetJobsRoute()+fmt.Sprintf("/type/%v/statuses?page=%v&per_page=%v", jobType, page, perPage), ""); err != nil {
+// Get all jobs, sorted with the job that was created most recently first.
+func (c *Client4) GetJobs(page int, perPage int) ([]*Job, *Response) {
+	if r, err := c.DoApiGet(c.GetJobsRoute()+fmt.Sprintf("?page=%v&per_page=%v", page, perPage), ""); err != nil {
 		return nil, BuildErrorResponse(r, err)
 	} else {
 		defer closeBody(r)
 		return JobsFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// GetJobsByType gets all jobs of a given type, sorted with the job that was created most recently first.
+func (c *Client4) GetJobsByType(jobType string, page int, perPage int) ([]*Job, *Response) {
+	if r, err := c.DoApiGet(c.GetJobsRoute()+fmt.Sprintf("/type/%v?page=%v&per_page=%v", jobType, page, perPage), ""); err != nil {
+		return nil, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return JobsFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// CreateJob creates a job based on the provided job struct.
+func (c *Client4) CreateJob(job *Job) (*Job, *Response) {
+	if r, err := c.DoApiPost(c.GetJobsRoute(), job.ToJson()); err != nil {
+		return nil, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return JobFromJson(r.Body), BuildResponse(r)
+	}
+}
+
+// CancelJob requests the cancellation of the job with the provided Id.
+func (c *Client4) CancelJob(jobId string) (bool, *Response) {
+	if r, err := c.DoApiPost(c.GetJobsRoute()+fmt.Sprintf("/%v/cancel", jobId), ""); err != nil {
+		return false, BuildErrorResponse(r, err)
+	} else {
+		defer closeBody(r)
+		return CheckStatusOK(r), BuildResponse(r)
 	}
 }

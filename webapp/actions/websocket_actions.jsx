@@ -2,6 +2,7 @@
 // See License.txt for license information.
 
 import $ from 'jquery';
+import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
 
 import UserStore from 'stores/user_store.jsx';
 import TeamStore from 'stores/team_store.jsx';
@@ -15,7 +16,7 @@ import WebSocketClient from 'client/web_websocket_client.jsx';
 import * as WebrtcActions from './webrtc_actions.jsx';
 
 import * as GlobalActions from 'actions/global_actions.jsx';
-import {handleNewPost, loadProfilesForPosts} from 'actions/post_actions.jsx';
+import {handleNewPost} from 'actions/post_actions.jsx';
 import {loadProfilesForSidebar} from 'actions/user_actions.jsx';
 import {loadChannelsForCurrentUser} from 'actions/channel_actions.jsx';
 import * as StatusActions from 'actions/status_actions.jsx';
@@ -34,7 +35,7 @@ import {getSiteURL} from 'utils/url.jsx';
 
 import * as TeamActions from 'mattermost-redux/actions/teams';
 import {viewChannel, getChannelAndMyMember, getChannelStats} from 'mattermost-redux/actions/channels';
-import {getPosts} from 'mattermost-redux/actions/posts';
+import {getPosts, getProfilesAndStatusesForPosts} from 'mattermost-redux/actions/posts';
 import {setServerVersion} from 'mattermost-redux/actions/general';
 import {ChannelTypes, TeamTypes, UserTypes, PostTypes, EmojiTypes} from 'mattermost-redux/action_types';
 
@@ -169,6 +170,10 @@ function handleEvent(msg) {
         handleUserUpdatedEvent(msg);
         break;
 
+    case SocketEvents.MEMBERROLE_UPDATED:
+        handleUpdateMemberRoleEvent(msg);
+        break;
+
     case SocketEvents.CHANNEL_CREATED:
         handleChannelCreatedEvent(msg);
         break;
@@ -242,9 +247,7 @@ function handleNewPostEvent(msg) {
     const post = JSON.parse(msg.data.post);
     handleNewPost(post, msg);
 
-    const posts = {};
-    posts[post.id] = post;
-    loadProfilesForPosts(posts);
+    getProfilesAndStatusesForPosts([post], dispatch, getState);
 
     if (post.user_id !== UserStore.getCurrentId()) {
         UserStore.setStatus(post.user_id, UserStatuses.ONLINE);
@@ -262,11 +265,23 @@ function handlePostEditEvent(msg) {
             viewChannel(ChannelStore.getCurrentId())(dispatch, getState);
         }
     }
+
+    // Needed for search store
+    AppDispatcher.handleViewAction({
+        type: Constants.ActionTypes.POST_UPDATED,
+        post
+    });
 }
 
 function handlePostDeleteEvent(msg) {
     const post = JSON.parse(msg.data.post);
     dispatch({type: PostTypes.POST_DELETED, data: post});
+
+    // Needed for search store
+    AppDispatcher.handleViewAction({
+        type: Constants.ActionTypes.POST_DELETED,
+        post
+    });
 }
 
 async function handleTeamAddedEvent(msg) {
@@ -308,6 +323,11 @@ function handleLeaveTeamEvent(msg) {
 
 function handleUpdateTeamEvent(msg) {
     TeamStore.updateTeam(msg.data.team);
+}
+
+function handleUpdateMemberRoleEvent(msg) {
+    const member = JSON.parse(msg.data.member);
+    TeamStore.updateMyRoles(member);
 }
 
 function handleDirectAddedEvent(msg) {

@@ -781,10 +781,7 @@
 
                     .settings-content {
                         .section-edit {
-                            padding-right: 0;
-                            position: absolute;
-                            right: 15px;
-                            top: 14px;
+                            text-align: left;
 
                             .fa {
                                 display: inline-block;
@@ -873,16 +870,20 @@
                 .heading {
                     font-size: 17px;
                     font-weight: 400;
-                    line-height: normal;
+                    line-height: 50px;
                     position: relative;
-                    top: 14px;
                     vertical-align: top;
+
+                    .ios & {
+                        line-height: 48px;
+                    }
                 }
 
                 .header-dropdown__icon {
                     font-size: 12px;
+                    line-height: 50px;
                     margin-left: 5px;
-                    top: 20px;
+                    top: 0;
                     vertical-align: top;
                 }
             }
@@ -1007,6 +1008,11 @@
             margin-top: 9px;
             width: 100%;
 
+            .fa-spin {
+                font-size: 1.1em;
+                top: 9px;
+            }
+
             .search-bar {
                 font-size: 14px;
                 height: 32px;
@@ -1024,9 +1030,8 @@
 
             .icon--refresh {
                 @include opacity(.6);
-                color: $black;
-                right: 30px;
-                top: 15px;
+                right: 16px;
+                top: 9px;
             }
 
             .form-control {
@@ -1047,8 +1052,8 @@
         @include single-transition(transform, .35s, ease);
         @include translate3d(290px, 0, 0);
         border: none;
-        width: 290px;
         visibility: hidden;
+        width: 290px;
 
         &.visible {
             display: block;
@@ -1078,7 +1083,7 @@
         }
 
         .nav-pills__container {
-            height: calc(100% - 60px);
+            height: calc(100% - 55px);
         }
 
         > div {
@@ -1291,10 +1296,10 @@
 
     .app__content {
         margin: 0;
-        padding-top: 56px;
+        padding-top: 50px;
 
         .channel__wrap & {
-            padding-top: 56px;
+            padding-top: 50px;
         }
 
         #channel-header {
@@ -1344,6 +1349,16 @@
 
     .post {
         .attachment {
+            .attachment__body__wrap {
+                .btn-close {
+                    height: 30px;
+                    left: -15px;
+                    top: 7px;
+                    visibility: visible;
+                    width: 30px;
+                }
+            }
+
             .attachment__image {
                 &.attachment__image--openraph {
                     max-width: 200px;
@@ -1579,6 +1594,10 @@
 }
 
 @media screen and (max-width: 480px) {
+    #user-profile-popover {
+        left: 50px !important;
+    }
+
     .post {
         .img-div {
             max-width: 100%;
@@ -1604,10 +1623,6 @@
                 .post__header {
                     height: auto;
                 }
-            }
-
-            .post__header {
-                padding-right: 50px;
             }
         }
     }

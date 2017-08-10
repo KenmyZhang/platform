@@ -40,7 +40,17 @@ func createPost(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	post.UserId = c.Session.UserId
 
-	if !app.SessionHasPermissionToChannel(c.Session, post.ChannelId, model.PERMISSION_CREATE_POST) {
+	hasPermission := false
+	if app.SessionHasPermissionToChannel(c.Session, post.ChannelId, model.PERMISSION_CREATE_POST) {
+		hasPermission = true
+	} else if channel, err := app.GetChannel(post.ChannelId); err == nil {
+		// Temporary permission check method until advanced permissions, please do not copy
+		if channel.Type == model.CHANNEL_OPEN && app.SessionHasPermissionToTeam(c.Session, channel.TeamId, model.PERMISSION_CREATE_POST_PUBLIC) {
+			hasPermission = true
+		}
+	}
+
+	if !hasPermission {
 		c.SetPermissionError(model.PERMISSION_CREATE_POST)
 		return
 	}
@@ -54,6 +64,8 @@ func createPost(c *Context, w http.ResponseWriter, r *http.Request) {
 		c.Err = err
 		return
 	}
+
+	app.SetStatusOnline(c.Session.UserId, c.Session.Id, false)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(rp.ToJson()))
@@ -139,8 +151,8 @@ func getFlaggedPostsForUser(c *Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	channelId := r.URL.Query().Get("in_channel")
-	teamId := r.URL.Query().Get("in_team")
+	channelId := r.URL.Query().Get("channel_id")
+	teamId := r.URL.Query().Get("team_id")
 
 	var posts *model.PostList
 	var err *model.AppError

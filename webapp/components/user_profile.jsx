@@ -3,7 +3,6 @@
 
 import ProfilePopover from './profile_popover.jsx';
 import * as Utils from 'utils/utils.jsx';
-import {Client4} from 'mattermost-redux/client';
 
 import {OverlayTrigger} from 'react-bootstrap';
 
@@ -56,14 +55,10 @@ export default class UserProfile extends React.Component {
     render() {
         let name = '...';
         let profileImg = '';
-        let popoverPosition = 'right';
-        if (Utils.isMobile()) {
-            popoverPosition = 'bottom';
-        }
 
         if (this.props.user) {
             name = Utils.displayUsername(this.props.user.id);
-            profileImg = Client4.getUsersRoute() + '/' + this.props.user.id + '/image?time=' + this.props.user.last_picture_update;
+            profileImg = Utils.imageURLForUser(this.props.user);
         }
 
         if (this.props.overwriteName) {
@@ -78,7 +73,7 @@ export default class UserProfile extends React.Component {
             <OverlayTrigger
                 ref='overlay'
                 trigger='click'
-                placement={popoverPosition}
+                placement='right'
                 rootClose={true}
                 overlay={
                     <ProfilePopover
@@ -87,6 +82,8 @@ export default class UserProfile extends React.Component {
                         status={this.props.status}
                         isBusy={this.props.isBusy}
                         hide={this.hideProfilePopover}
+                        isRHS={this.props.isRHS}
+                        hasMention={this.props.hasMention}
                     />
                 }
             >
@@ -104,7 +101,9 @@ UserProfile.defaultProps = {
     user: {},
     overwriteName: '',
     overwriteImage: '',
-    disablePopover: false
+    disablePopover: false,
+    isRHS: false,
+    hasMention: false
 };
 UserProfile.propTypes = {
     user: PropTypes.object,
@@ -113,5 +112,7 @@ UserProfile.propTypes = {
     disablePopover: PropTypes.bool,
     displayNameType: PropTypes.string,
     status: PropTypes.string,
-    isBusy: PropTypes.bool
+    isBusy: PropTypes.bool,
+    isRHS: PropTypes.bool,
+    hasMention: PropTypes.bool
 };

@@ -11,7 +11,7 @@ import UserStore from 'stores/user_store.jsx';
 import TeamStore from 'stores/team_store.jsx';
 
 import Constants from 'utils/constants.jsx';
-import {displayUsernameForUser} from 'utils/utils.jsx';
+import {displayEntireNameForUser} from 'utils/utils.jsx';
 import {Client4} from 'mattermost-redux/client';
 
 import PropTypes from 'prop-types';
@@ -185,11 +185,18 @@ export default class MoreDirectChannels extends React.Component {
         }
     }
 
+    resetPaging = () => {
+        if (this.refs.multiselect) {
+            this.refs.multiselect.resetPaging();
+        }
+    }
+
     search(term) {
         clearTimeout(this.searchTimeoutId);
         this.term = term;
 
         if (term === '') {
+            this.resetPaging();
             this.onChange();
             return;
         }
@@ -203,7 +210,7 @@ export default class MoreDirectChannels extends React.Component {
 
         this.searchTimeoutId = setTimeout(
             () => {
-                searchUsers(term, teamId);
+                searchUsers(term, teamId, {}, this.resetPaging);
             },
             Constants.SEARCH_TIMEOUT_MILLISECONDS
         );
@@ -236,7 +243,7 @@ export default class MoreDirectChannels extends React.Component {
                     className='more-modal__details'
                 >
                     <div className='more-modal__name'>
-                        {displayUsernameForUser(option)}
+                        {displayEntireNameForUser(option)}
                     </div>
                     <div className='more-modal__description'>
                         {option.email}
@@ -292,6 +299,11 @@ export default class MoreDirectChannels extends React.Component {
             />
         );
 
+        let users = [];
+        if (this.state.users) {
+            users = this.state.users.filter((user) => user.delete_at === 0);
+        }
+
         return (
             <Modal
                 dialogClassName={'more-modal more-direct-channels'}
@@ -310,7 +322,8 @@ export default class MoreDirectChannels extends React.Component {
                 <Modal.Body>
                     <MultiSelect
                         key='moreDirectChannelsList'
-                        options={this.state.users}
+                        ref='multiselect'
+                        options={users}
                         optionRenderer={this.renderOption}
                         values={this.state.values}
                         valueRenderer={this.renderValue}

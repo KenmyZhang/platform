@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
-import CreateComment from 'components/create_comment.jsx';
+import CreateComment from 'components/create_comment';
 import RhsHeaderPost from 'components/rhs_header_post.jsx';
 import RootPost from 'components/rhs_root_post.jsx';
 import Comment from 'components/rhs_comment.jsx';
@@ -59,7 +59,10 @@ export default class RhsThread extends React.Component {
         currentUser: PropTypes.object.isRequired,
         useMilitaryTime: PropTypes.bool.isRequired,
         toggleSize: PropTypes.func,
-        shrink: PropTypes.func
+        shrink: PropTypes.func,
+        actions: PropTypes.shape({
+            removePost: PropTypes.func.isRequired
+        }).isRequired
     }
 
     static defaultProps = {
@@ -316,10 +319,6 @@ export default class RhsThread extends React.Component {
         });
     }
 
-    getPostListContainer = () => {
-        return this.refs.postListContainer;
-    }
-
     getSidebarBody = () => {
         return this.refs.sidebarbody;
     }
@@ -344,7 +343,7 @@ export default class RhsThread extends React.Component {
 
         let isRootFlagged = false;
         if (this.state.flaggedPosts) {
-            isRootFlagged = this.state.flaggedPosts.get(selected.id) === 'true';
+            isRootFlagged = this.state.flaggedPosts.get(selected.id) != null;
         }
 
         let rootStatus = 'offline';
@@ -368,7 +367,7 @@ export default class RhsThread extends React.Component {
 
             let isFlagged = false;
             if (this.state.flaggedPosts) {
-                isFlagged = this.state.flaggedPosts.get(comPost.id) === 'true';
+                isFlagged = this.state.flaggedPosts.get(comPost.id) != null;
             }
 
             let status = 'offline';
@@ -400,7 +399,7 @@ export default class RhsThread extends React.Component {
                         isFlagged={isFlagged}
                         status={status}
                         isBusy={this.state.isBusy}
-                        getPostList={this.getPostListContainer}
+                        removePost={this.props.actions.removePost}
                     />
                 </div>
             );
@@ -435,10 +434,7 @@ export default class RhsThread extends React.Component {
                     renderView={renderView}
                     onScroll={this.handleScroll}
                 >
-                    <div
-                        ref='postListContainer'
-                        className='post-right__scroll'
-                    >
+                    <div className='post-right__scroll'>
                         <DateSeparator
                             date={rootPostDay}
                         />
@@ -454,7 +450,6 @@ export default class RhsThread extends React.Component {
                             status={rootStatus}
                             previewCollapsed={this.state.previewsCollapsed}
                             isBusy={this.state.isBusy}
-                            getPostList={this.getPostListContainer}
                         />
                         <div
                             ref='rhspostlist'

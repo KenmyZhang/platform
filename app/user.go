@@ -1230,6 +1230,10 @@ func PermanentDeleteUser(user *model.User) *model.AppError {
 		return result.Err
 	}
 
+	if result := <-Srv.Store.UserAccessToken().DeleteAllForUser(user.Id); result.Err != nil {
+		return result.Err
+	}
+
 	if result := <-Srv.Store.OAuth().PermanentDeleteAuthDataByUser(user.Id); result.Err != nil {
 		return result.Err
 	}

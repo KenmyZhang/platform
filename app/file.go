@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -29,6 +28,7 @@ import (
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/utils"
 	s3 "github.com/minio/minio-go"
+	"github.com/minio/minio-go/pkg/credentials"
 	"github.com/rwcarlsen/goexif/exif"
 	_ "golang.org/x/image/bmp"
 )
@@ -61,11 +61,17 @@ const (
 
 // Similar to s3.New() but allows initialization of signature v2 or signature v4 client.
 // If signV2 input is false, function always returns signature v4.
-func s3New(endpoint, accessKey, secretKey string, secure bool, signV2 bool) (*s3.Client, error) {
+//
+// Additionally this function also takes a user defined region, if set
+// disables automatic region lookup.
+func s3New(endpoint, accessKey, secretKey string, secure bool, signV2 bool, region string) (*s3.Client, error) {
+	var creds *credentials.Credentials
 	if signV2 {
-		return s3.NewV2(endpoint, accessKey, secretKey, secure)
+		creds = credentials.NewStatic(accessKey, secretKey, "", credentials.SignatureV2)
+	} else {
+		creds = credentials.NewStatic(accessKey, secretKey, "", credentials.SignatureV4)
 	}
-	return s3.NewV4(endpoint, accessKey, secretKey, secure)
+	return s3.NewWithCredentials(endpoint, creds, secure, region)
 }
 
 func ReadFile(path string) ([]byte, *model.AppError) {
@@ -75,7 +81,8 @@ func ReadFile(path string) ([]byte, *model.AppError) {
 		secretKey := utils.Cfg.FileSettings.AmazonS3SecretAccessKey
 		secure := *utils.Cfg.FileSettings.AmazonS3SSL
 		signV2 := *utils.Cfg.FileSettings.AmazonS3SignV2
-		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2)
+		region := utils.Cfg.FileSettings.AmazonS3Region
+		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2, region)
 		if err != nil {
 			return nil, model.NewLocAppError("ReadFile", "api.file.read_file.s3.app_error", nil, err.Error())
 		}
@@ -108,14 +115,19 @@ func MoveFile(oldPath, newPath string) *model.AppError {
 		secretKey := utils.Cfg.FileSettings.AmazonS3SecretAccessKey
 		secure := *utils.Cfg.FileSettings.AmazonS3SSL
 		signV2 := *utils.Cfg.FileSettings.AmazonS3SignV2
-		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2)
+		region := utils.Cfg.FileSettings.AmazonS3Region
+		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2, region)
 		if err != nil {
 			return model.NewLocAppError("moveFile", "api.file.write_file.s3.app_error", nil, err.Error())
 		}
 		bucket := utils.Cfg.FileSettings.AmazonS3Bucket
 
-		var copyConds = s3.NewCopyConditions()
-		if err = s3Clnt.CopyObject(bucket, newPath, "/"+path.Join(bucket, oldPath), copyConds); err != nil {
+		source := s3.NewSourceInfo(bucket, oldPath, nil)
+		destination, err := s3.NewDestinationInfo(bucket, newPath, nil, nil)
+		if err != nil {
+			return model.NewLocAppError("moveFile", "api.file.write_file.s3.app_error", nil, err.Error())
+		}
+		if err = s3Clnt.CopyObject(destination, source); err != nil {
 			return model.NewLocAppError("moveFile", "api.file.move_file.delete_from_s3.app_error", nil, err.Error())
 		}
 		if err = s3Clnt.RemoveObject(bucket, oldPath); err != nil {
@@ -143,7 +155,8 @@ func WriteFile(f []byte, path string) *model.AppError {
 		secretKey := utils.Cfg.FileSettings.AmazonS3SecretAccessKey
 		secure := *utils.Cfg.FileSettings.AmazonS3SSL
 		signV2 := *utils.Cfg.FileSettings.AmazonS3SignV2
-		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2)
+		region := utils.Cfg.FileSettings.AmazonS3Region
+		s3Clnt, err := s3New(endpoint, accessKey, secretKey, secure, signV2, region)
 		if err != nil {
 			return model.NewLocAppError("WriteFile", "api.file.write_file.s3.app_error", nil, err.Error())
 		}
@@ -489,7 +502,7 @@ func HandleImages(previewPathList []string, thumbnailPathList []string, fileData
 			go func(img *image.Image, path string, width int, height int) {
 				defer wg.Done()
 				generateThumbnailImage(*img, path, width, height)
-			}(img,thumbnailPathList[i], width, height)
+			}(img, thumbnailPathList[i], width, height)
 
 			go func(img *image.Image, path string, width int) {
 				defer wg.Done()

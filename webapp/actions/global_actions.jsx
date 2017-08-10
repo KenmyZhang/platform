@@ -45,9 +45,11 @@ export function emitChannelClickEvent(channel) {
         const currentUserId = UserStore.getCurrentId();
         const otherUserId = Utils.getUserIdFromChannelName(chan);
         createDirectChannel(currentUserId, otherUserId)(dispatch, getState).then(
-            (data) => {
-                if (data) {
-                    success(data);
+            (result) => {
+                const receivedChannel = result.data;
+
+                if (receivedChannel) {
+                    success(receivedChannel);
                 } else {
                     fail();
                 }
@@ -65,6 +67,7 @@ export function emitChannelClickEvent(channel) {
 
             // Mark previous and next channel as read
             ChannelStore.resetCounts([chan.id, oldChannelId]);
+            reloadIfServerVersionChanged();
         });
 
         // Subtract mentions for the team
@@ -225,6 +228,22 @@ export function showChannelHeaderUpdateModal(channel) {
     });
 }
 
+export function showChannelPurposeUpdateModal(channel) {
+    AppDispatcher.handleViewAction({
+        type: ActionTypes.TOGGLE_CHANNEL_PURPOSE_UPDATE_MODAL,
+        value: true,
+        channel
+    });
+}
+
+export function showChannelNameUpdateModal(channel) {
+    AppDispatcher.handleViewAction({
+        type: ActionTypes.TOGGLE_CHANNEL_NAME_UPDATE_MODAL,
+        value: true,
+        channel
+    });
+}
+
 export function showGetPostLinkModal(post) {
     AppDispatcher.handleViewAction({
         type: ActionTypes.TOGGLE_GET_POST_LINK_MODAL,
@@ -259,6 +278,13 @@ export function showLeaveTeamModal() {
     AppDispatcher.handleViewAction({
         type: ActionTypes.TOGGLE_LEAVE_TEAM_MODAL,
         value: true
+    });
+}
+
+export function showLeavePrivateChannelModal(channel) {
+    AppDispatcher.handleViewAction({
+        type: ActionTypes.TOGGLE_LEAVE_PRIVATE_CHANNEL_MODAL,
+        value: channel
     });
 }
 
@@ -332,14 +358,7 @@ export function emitPreferencesDeletedEvent(preferences) {
     });
 }
 
-export function emitRemovePost(post) {
-    AppDispatcher.handleViewAction({
-        type: Constants.ActionTypes.REMOVE_POST,
-        post
-    });
-}
-
-export function sendEphemeralPost(message, channelId) {
+export function sendEphemeralPost(message, channelId, parentId) {
     const timestamp = Utils.getTimestamp();
     const post = {
         id: Utils.generateId(),
@@ -349,6 +368,8 @@ export function sendEphemeralPost(message, channelId) {
         type: Constants.PostTypes.EPHEMERAL,
         create_at: timestamp,
         update_at: timestamp,
+        root_id: parentId,
+        parent_id: parentId,
         props: {}
     };
 
@@ -497,6 +518,23 @@ export function toggleSideBarAction(visible) {
     }
 }
 
+export function toggleSideBarRightMenuAction() {
+    AppDispatcher.handleServerAction({
+        type: ActionTypes.RECEIVED_SEARCH,
+        results: null
+    });
+
+    AppDispatcher.handleServerAction({
+        type: ActionTypes.RECEIVED_POST_SELECTED,
+        postId: null
+    });
+
+    document.querySelector('.app__body .inner-wrap').classList.remove('move--right', 'move--left', 'move--left-small');
+    document.querySelector('.app__body .sidebar--left').classList.remove('move--right');
+    document.querySelector('.app__body .sidebar--right').classList.remove('move--left');
+    document.querySelector('.app__body .sidebar--menu').classList.remove('move--left');
+}
+
 export function emitBrowserFocus(focus) {
     AppDispatcher.handleViewAction({
         type: ActionTypes.BROWSER_CHANGE_FOCUS,
@@ -556,4 +594,24 @@ export function postListScrollChange(forceScrollToBottom = false) {
         type: EventTypes.POST_LIST_SCROLL_CHANGE,
         value: forceScrollToBottom
     });
+}
+
+export function emitPopoverMentionKeyClick(isRHS, mentionKey) {
+    AppDispatcher.handleViewAction({
+        type: ActionTypes.POPOVER_MENTION_KEY_CLICK,
+        isRHS,
+        mentionKey
+    });
+}
+
+let serverVersion = '';
+
+export function reloadIfServerVersionChanged() {
+    const newServerVersion = Client4.getServerVersion();
+    if (serverVersion && serverVersion !== newServerVersion) {
+        console.log('Detected version update refreshing the page'); //eslint-disable-line no-console
+        window.location.reload(true);
+    }
+
+    serverVersion = newServerVersion;
 }

@@ -77,12 +77,12 @@ export default class SidebarRight extends React.Component {
     }
 
     shouldComponentUpdate(nextProps, nextState) {
-        return !Utils.areObjectsEqual(nextState, this.state) || !Utils.areObjectsEqual(nextProps, this.props);
+        return !Utils.areObjectsEqual(nextState, this.state) || this.props.postRightVisible !== nextProps.postRightVisible;
     }
 
     componentWillUpdate(nextProps, nextState) {
         const isOpen = this.state.searchVisible || this.props.postRightVisible;
-        const willOpen = nextState.searchVisible || nextState.postRightVisible;
+        const willOpen = nextState.searchVisible || nextProps.postRightVisible;
 
         if (!isOpen && willOpen) {
             trackEvent('ui', 'ui_rhs_opened');
@@ -157,7 +157,7 @@ export default class SidebarRight extends React.Component {
 
     onSearchChange() {
         this.setState({
-            searchVisible: SearchStore.getSearchResults() !== null,
+            searchVisible: SearchStore.getSearchResults() !== null || SearchStore.isLoading(),
             isMentionSearch: SearchStore.getIsMentionSearch(),
             isFlaggedPosts: SearchStore.getIsFlaggedPosts(),
             isPinnedPosts: SearchStore.getIsPinnedPosts()

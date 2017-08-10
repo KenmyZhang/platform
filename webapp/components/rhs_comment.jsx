@@ -11,7 +11,6 @@ import FailedPostOptions from 'components/post_view/failed_post_options';
 import DotMenu from 'components/dot_menu';
 import EmojiPickerOverlay from 'components/emoji_picker/emoji_picker_overlay.jsx';
 
-import * as GlobalActions from 'actions/global_actions.jsx';
 import {addReaction} from 'actions/post_actions.jsx';
 
 import TeamStore from 'stores/team_store.jsx';
@@ -27,6 +26,19 @@ import {Link} from 'react-router/es6';
 import {FormattedMessage} from 'react-intl';
 
 export default class RhsComment extends React.Component {
+    static propTypes = {
+        post: PropTypes.object,
+        lastPostCount: PropTypes.number,
+        user: PropTypes.object.isRequired,
+        currentUser: PropTypes.object.isRequired,
+        compactDisplay: PropTypes.bool,
+        useMilitaryTime: PropTypes.bool.isRequired,
+        isFlagged: PropTypes.bool,
+        status: PropTypes.string,
+        isBusy: PropTypes.bool,
+        removePost: PropTypes.func.isRequired
+    };
+
     constructor(props) {
         super(props);
 
@@ -56,7 +68,7 @@ export default class RhsComment extends React.Component {
     }
 
     removePost() {
-        GlobalActions.emitRemovePost(this.props.post);
+        this.props.removePost(this.props.post);
     }
 
     createRemovePostButton() {
@@ -154,6 +166,7 @@ export default class RhsComment extends React.Component {
         this.setState({showEmojiPicker: false});
         const emojiName = emoji.name || emoji.aliases[0];
         addReaction(this.props.post.channel_id, this.props.post.id, emojiName);
+        this.handleDropdownOpened(false);
     }
 
     getClassName = (post, isSystemMessage) => {
@@ -200,8 +213,6 @@ export default class RhsComment extends React.Component {
         const isEphemeral = Utils.isPostEphemeral(post);
         const isSystemMessage = PostUtils.isSystemMessage(post);
 
-        var timestamp = this.props.currentUser.last_picture_update;
-
         let status = this.props.status;
         if (post.props && post.props.from_webhook === 'true') {
             status = null;
@@ -213,9 +224,12 @@ export default class RhsComment extends React.Component {
                 user={this.props.user}
                 status={status}
                 isBusy={this.props.isBusy}
+                isRHS={true}
+                hasMention={true}
             />
         );
 
+        let visibleMessage;
         if (post.props && post.props.from_webhook) {
             if (post.props.override_username && global.window.mm_config.EnablePostUsernameOverride === 'true') {
                 userProfile = (
@@ -249,6 +263,15 @@ export default class RhsComment extends React.Component {
                     disablePopover={true}
                 />
             );
+
+            visibleMessage = (
+                <span className='post__visibility'>
+                    <FormattedMessage
+                        id='post_info.message.visible'
+                        defaultMessage='(Only visible to you)'
+                    />
+                </span>
+            );
         }
 
         let failedPostOptions;
@@ -265,19 +288,21 @@ export default class RhsComment extends React.Component {
 
         let profilePic = (
             <ProfilePicture
-                src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                src={PostUtils.getProfilePicSrcForPost(post, this.props.user)}
                 status={status}
                 width='36'
                 height='36'
                 user={this.props.user}
                 isBusy={this.props.isBusy}
+                isRHS={true}
+                hasMention={true}
             />
         );
 
         if (post.props && post.props.from_webhook) {
             profilePic = (
                 <ProfilePicture
-                    src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                    src={PostUtils.getProfilePicSrcForPost(post, this.props.user)}
                     width='36'
                     height='36'
                 />
@@ -307,6 +332,8 @@ export default class RhsComment extends React.Component {
                         status={status}
                         user={this.props.user}
                         isBusy={this.props.isBusy}
+                        isRHS={true}
+                        hasMention={true}
                     />
                 );
             }
@@ -333,9 +360,10 @@ export default class RhsComment extends React.Component {
                         show={this.state.showEmojiPicker}
                         onHide={this.toggleEmojiPicker}
                         target={() => this.refs.dotMenu}
-                        container={this.props.getPostList}
                         onEmojiClick={this.reactEmojiClick}
                         rightOffset={15}
+                        spaceRequiredAbove={342}
+                        spaceRequiredBelow={342}
                     />
                     <a
                         href='#'
@@ -419,13 +447,18 @@ export default class RhsComment extends React.Component {
                                     isFlagged={this.props.isFlagged}
                                     isEphemeral={isEphemeral}
                                 />
+                                {visibleMessage}
                             </div>
                             {options}
                         </div>
                         <div className='post__body' >
                             <div className={postClass}>
                                 {failedPostOptions}
-                                <PostMessageContainer post={post}/>
+                                <PostMessageContainer
+                                    post={post}
+                                    isRHS={true}
+                                    hasMention={true}
+                                />
                             </div>
                             {fileAttachment}
                             <ReactionListContainer post={post}/>
@@ -436,16 +469,3 @@ export default class RhsComment extends React.Component {
         );
     }
 }
-
-RhsComment.propTypes = {
-    post: PropTypes.object,
-    lastPostCount: PropTypes.number,
-    user: PropTypes.object.isRequired,
-    currentUser: PropTypes.object.isRequired,
-    compactDisplay: PropTypes.bool,
-    useMilitaryTime: PropTypes.bool.isRequired,
-    isFlagged: PropTypes.bool,
-    status: PropTypes.string,
-    isBusy: PropTypes.bool,
-    getPostList: PropTypes.func.isRequired
-};

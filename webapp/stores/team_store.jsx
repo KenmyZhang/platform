@@ -10,6 +10,7 @@ import Constants from 'utils/constants.jsx';
 const NotificationPrefs = Constants.NotificationPrefs;
 
 import {getSiteURL} from 'utils/url.jsx';
+import {isSystemMessage, isFromWebhook} from 'utils/post_utils.jsx';
 const ActionTypes = Constants.ActionTypes;
 
 const CHANGE_EVENT = 'change';
@@ -341,6 +342,22 @@ class TeamStoreClass extends EventEmitter {
         return false;
     }
 
+    updateMyRoles(member) {
+        const teamMembers = this.getMyTeamMembers();
+        const teamMember = teamMembers.find((m) => m.user_id === member.user_id && m.team_id === member.team_id);
+
+        if (teamMember) {
+            const newMember = Object.assign({}, teamMember, {
+                roles: member.roles
+            });
+
+            store.dispatch({
+                type: TeamTypes.RECEIVED_MY_TEAM_MEMBER,
+                data: newMember
+            });
+        }
+    }
+
     subtractUnread(teamId, msgs, mentions) {
         let member = this.getMyTeamMembers().filter((m) => m.team_id === teamId)[0];
         if (member) {
@@ -430,6 +447,10 @@ TeamStore.dispatchToken = AppDispatcher.register((payload) => {
         break;
     case ActionTypes.RECEIVED_POST:
         if (Constants.IGNORE_POST_TYPES.indexOf(action.post.type) !== -1) {
+            return;
+        }
+
+        if (action.post.user_id === UserStore.getCurrentId() && !isSystemMessage(action.post) && !isFromWebhook(action.post)) {
             return;
         }
 

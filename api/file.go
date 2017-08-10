@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	l4g "github.com/alecthomas/log4go"
 	"github.com/gorilla/mux"
@@ -14,6 +15,20 @@ import (
 	"github.com/mattermost/platform/model"
 	"github.com/mattermost/platform/utils"
 )
+
+const (
+	PREVIEW_IMAGE_TYPE   = "image/jpeg"
+	THUMBNAIL_IMAGE_TYPE = "image/jpeg"
+)
+
+var UNSAFE_CONTENT_TYPES = [...]string{
+	"application/javascript",
+	"application/ecmascript",
+	"text/javascript",
+	"text/ecmascript",
+	"application/x-javascript",
+	"text/html",
+}
 
 func InitFile() {
 	l4g.Debug(utils.T("api.file.init.debug"))
@@ -106,7 +121,7 @@ func getFileThumbnail(c *Context, w http.ResponseWriter, r *http.Request) {
 	if data, err := app.ReadFile(info.ThumbnailPath); err != nil {
 		c.Err = err
 		c.Err.StatusCode = http.StatusNotFound
-	} else if err := writeFileResponse(info.Name, "", data, w, r); err != nil {
+	} else if err := writeFileResponse(info.Name, THUMBNAIL_IMAGE_TYPE, data, w, r); err != nil {
 		c.Err = err
 		return
 	}
@@ -128,7 +143,7 @@ func getFilePreview(c *Context, w http.ResponseWriter, r *http.Request) {
 	if data, err := app.ReadFile(info.PreviewPath); err != nil {
 		c.Err = err
 		c.Err.StatusCode = http.StatusNotFound
-	} else if err := writeFileResponse(info.Name, "", data, w, r); err != nil {
+	} else if err := writeFileResponse(info.Name, PREVIEW_IMAGE_TYPE, data, w, r); err != nil {
 		c.Err = err
 		return
 	}
@@ -282,12 +297,20 @@ func getPublicFileOld(c *Context, w http.ResponseWriter, r *http.Request) {
 func writeFileResponse(filename string, contentType string, bytes []byte, w http.ResponseWriter, r *http.Request) *model.AppError {
 	w.Header().Set("Cache-Control", "max-age=2592000, private")
 	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 
-	if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	} else {
-		w.Header().Del("Content-Type") // Content-Type will be set automatically by the http writer
+		for _, unsafeContentType := range UNSAFE_CONTENT_TYPES {
+			if strings.HasPrefix(contentType, unsafeContentType) {
+				contentType = "text/plain"
+				break
+			}
+		}
 	}
+
+	w.Header().Set("Content-Type", contentType)
 
 	w.Header().Set("Content-Disposition", "attachment;filename=\""+filename+"\"; filename*=UTF-8''"+url.QueryEscape(filename))
 

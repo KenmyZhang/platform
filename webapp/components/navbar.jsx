@@ -12,7 +12,6 @@ import ChannelMembersModal from './channel_members_modal.jsx';
 import ChannelNotificationsModal from './channel_notifications_modal.jsx';
 import DeleteChannelModal from './delete_channel_modal.jsx';
 import RenameChannelModal from './rename_channel_modal.jsx';
-import ConfirmModal from './confirm_modal.jsx';
 import ToggleModalButton from './toggle_modal_button.jsx';
 import StatusIcon from './status_icon.jsx';
 
@@ -56,6 +55,8 @@ export default class Navbar extends React.Component {
 
         this.showEditChannelHeaderModal = this.showEditChannelHeaderModal.bind(this);
         this.hideEditChannelHeaderModal = this.hideEditChannelHeaderModal.bind(this);
+        this.showChannelPurposeModal = this.showChannelPurposeModal.bind(this);
+        this.hideChannelPurposeModal = this.hideChannelPurposeModal.bind(this);
         this.showRenameChannelModal = this.showRenameChannelModal.bind(this);
         this.hideRenameChannelModal = this.hideRenameChannelModal.bind(this);
         this.isStateValid = this.isStateValid.bind(this);
@@ -72,9 +73,6 @@ export default class Navbar extends React.Component {
 
         this.openDirectMessageModal = this.openDirectMessageModal.bind(this);
         this.getPinnedPosts = this.getPinnedPosts.bind(this);
-
-        this.createLeaveChannelModal = this.createLeaveChannelModal.bind(this);
-        this.hideLeaveChannelModal = this.hideLeaveChannelModal.bind(this);
 
         const state = this.getStateFromStores();
         state.showEditChannelPurposeModal = false;
@@ -95,8 +93,7 @@ export default class Navbar extends React.Component {
             users: [],
             userCount: ChannelStore.getCurrentStats().member_count,
             currentUser: UserStore.getCurrentUser(),
-            isFavorite: channel && ChannelUtils.isFavoriteChannel(channel),
-            showLeaveChannelModal: false
+            isFavorite: channel && ChannelUtils.isFavoriteChannel(channel)
         };
     }
 
@@ -112,6 +109,8 @@ export default class Navbar extends React.Component {
         PreferenceStore.addChangeListener(this.onChange);
         ModalStore.addModalListener(ActionTypes.TOGGLE_QUICK_SWITCH_MODAL, this.toggleQuickSwitchModal);
         ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_HEADER_UPDATE_MODAL, this.showEditChannelHeaderModal);
+        ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_PURPOSE_UPDATE_MODAL, this.showChannelPurposeModal);
+        ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_NAME_UPDATE_MODAL, this.showRenameChannelModal);
         $('.inner-wrap').click(this.hideSidebars);
         document.addEventListener('keydown', this.handleQuickSwitchKeyPress);
     }
@@ -124,6 +123,8 @@ export default class Navbar extends React.Component {
         PreferenceStore.removeChangeListener(this.onChange);
         ModalStore.removeModalListener(ActionTypes.TOGGLE_QUICK_SWITCH_MODAL, this.toggleQuickSwitchModal);
         ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_HEADER_UPDATE_MODAL, this.hideEditChannelHeaderModal);
+        ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_PURPOSE_UPDATE_MODAL, this.hideChannelPurposeModal);
+        ModalStore.addModalListener(ActionTypes.TOGGLE_CHANNEL_NAME_UPDATE_MODAL, this.hideRenameChannelModal);
         document.removeEventListener('keydown', this.handleQuickSwitchKeyPress);
     }
 
@@ -133,9 +134,7 @@ export default class Navbar extends React.Component {
 
     handleLeave() {
         if (this.state.channel.type === Constants.PRIVATE_CHANNEL) {
-            this.setState({
-                showLeaveChannelModal: true
-            });
+            GlobalActions.showLeavePrivateChannelModal(this.state.channel);
         } else {
             ChannelActions.leaveChannel(this.state.channel.id);
         }
@@ -202,9 +201,19 @@ export default class Navbar extends React.Component {
         });
     }
 
-    showRenameChannelModal(e) {
-        e.preventDefault();
+    showChannelPurposeModal() {
+        this.setState({
+            showEditChannelPurposeModal: true
+        });
+    }
 
+    hideChannelPurposeModal() {
+        this.setState({
+            showEditChannelPurposeModal: false
+        });
+    }
+
+    showRenameChannelModal() {
         this.setState({
             showRenameChannelModal: true
         });
@@ -504,7 +513,7 @@ export default class Navbar extends React.Component {
                             <a
                                 role='menuitem'
                                 href='#'
-                                onClick={() => this.setState({showEditChannelPurposeModal: true})}
+                                onClick={this.showChannelPurposeModal}
                             >
                                 <FormattedMessage
                                     id='channel_header.setPurpose'
@@ -698,7 +707,7 @@ export default class Navbar extends React.Component {
                         />
                     </span>
                     <span
-                        className='icon icon__menu'
+                        className='icon icon__menu icon--sidebarHeaderTextColor'
                         dangerouslySetInnerHTML={{__html: menuIcon}}
                         aria-hidden='true'
                     />
@@ -721,54 +730,6 @@ export default class Navbar extends React.Component {
         }
 
         return buttons;
-    }
-
-    hideLeaveChannelModal() {
-        this.setState({
-            showLeaveChannelModal: false
-        });
-    }
-
-    createLeaveChannelModal() {
-        const title = (
-            <FormattedMessage
-                id='leave_private_channel_modal.title'
-                defaultMessage='Leave Private Channel {channel}'
-                values={{
-                    channel: <b>{this.state.channel.display_name}</b>
-                }}
-            />
-        );
-
-        const message = (
-            <FormattedMessage
-                id='leave_private_channel_modal.message'
-                defaultMessage='Are you sure you wish to leave the private channel {channel}? You must be re-invited in order to re-join this channel in the future.'
-                values={{
-                    channel: <b>{this.state.channel.display_name}</b>
-                }}
-            />
-        );
-
-        const buttonClass = 'btn btn-danger';
-        const button = (
-            <FormattedMessage
-                id='leave_private_channel_modal.leave'
-                defaultMessage='Yes, leave channel'
-            />
-        );
-
-        return (
-            <ConfirmModal
-                show={this.state.showLeaveChannelModal}
-                title={title}
-                message={message}
-                confirmButtonClass={buttonClass}
-                confirmButtonText={button}
-                onConfirm={() => ChannelActions.leaveChannel(this.state.channel.id)}
-                onCancel={this.hideLeaveChannelModal}
-            />
-        );
     }
 
     getTeammateStatus() {
@@ -891,7 +852,7 @@ export default class Navbar extends React.Component {
             if (this.state.showEditChannelPurposeModal) {
                 editChannelPurposeModal = (
                     <EditChannelPurposeModal
-                        onModalDismissed={() => this.setState({showEditChannelPurposeModal: false})}
+                        onModalDismissed={this.hideChannelPurposeModal}
                         channel={channel}
                     />
                 );
@@ -945,8 +906,6 @@ export default class Navbar extends React.Component {
 
         var channelMenuDropdown = this.createDropdown(channel, channelTitle, isSystemAdmin, isTeamAdmin, isChannelAdmin, isDirect, isGroup, popoverContent);
 
-        const leaveChannelModal = this.createLeaveChannelModal();
-
         return (
             <div>
                 <nav
@@ -963,7 +922,6 @@ export default class Navbar extends React.Component {
                 </nav>
                 {editChannelHeaderModal}
                 {editChannelPurposeModal}
-                {leaveChannelModal}
                 {renameChannelModal}
                 {channelMembersModal}
                 {quickSwitchModal}

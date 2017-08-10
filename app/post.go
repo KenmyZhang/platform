@@ -100,7 +100,7 @@ func CreatePost(post *model.Post, teamId string, triggerWebhooks bool) (*model.P
 	}
 
 	esInterface := einterfaces.GetElasticsearchInterface()
-	if esInterface != nil && *utils.Cfg.ElasticSearchSettings.EnableIndexing {
+	if esInterface != nil && *utils.Cfg.ElasticsearchSettings.EnableIndexing {
 		go esInterface.IndexPost(rpost, teamId)
 	}
 
@@ -227,18 +227,18 @@ func SendEphemeralPost(teamId, userId string, post *model.Post) *model.Post {
 }
 
 func UpdatePost(post *model.Post, safeUpdate bool) (*model.Post, *model.AppError) {
-	if utils.IsLicensed {
-		if *utils.Cfg.ServiceSettings.AllowEditPost == model.ALLOW_EDIT_POST_NEVER {
-			err := model.NewAppError("UpdatePost", "api.post.update_post.permissions_denied.app_error", nil, "", http.StatusForbidden)
-			return nil, err
-		}
-	}
-
 	var oldPost *model.Post
 	if result := <-Srv.Store.Post().Get(post.Id); result.Err != nil {
 		return nil, result.Err
 	} else {
 		oldPost = result.Data.(*model.PostList).Posts[post.Id]
+
+		if utils.IsLicensed {
+			if *utils.Cfg.ServiceSettings.AllowEditPost == model.ALLOW_EDIT_POST_NEVER && post.Message != oldPost.Message {
+				err := model.NewAppError("UpdatePost", "api.post.update_post.permissions_denied.app_error", nil, "", http.StatusForbidden)
+				return nil, err
+			}
+		}
 
 		if oldPost == nil {
 			err := model.NewAppError("UpdatePost", "api.post.update_post.find.app_error", nil, "id="+post.Id, http.StatusBadRequest)
@@ -256,7 +256,7 @@ func UpdatePost(post *model.Post, safeUpdate bool) (*model.Post, *model.AppError
 		}
 
 		if utils.IsLicensed {
-			if *utils.Cfg.ServiceSettings.AllowEditPost == model.ALLOW_EDIT_POST_TIME_LIMIT && model.GetMillis() > oldPost.CreateAt+int64(*utils.Cfg.ServiceSettings.PostEditTimeLimit*1000) {
+			if *utils.Cfg.ServiceSettings.AllowEditPost == model.ALLOW_EDIT_POST_TIME_LIMIT && model.GetMillis() > oldPost.CreateAt+int64(*utils.Cfg.ServiceSettings.PostEditTimeLimit*1000) && post.Message != oldPost.Message {
 				err := model.NewAppError("UpdatePost", "api.post.update_post.permissions_time_limit.app_error", map[string]interface{}{"timeLimit": *utils.Cfg.ServiceSettings.PostEditTimeLimit}, "", http.StatusBadRequest)
 				return nil, err
 			}
@@ -285,10 +285,10 @@ func UpdatePost(post *model.Post, safeUpdate bool) (*model.Post, *model.AppError
 		rpost := result.Data.(*model.Post)
 
 		esInterface := einterfaces.GetElasticsearchInterface()
-		if esInterface != nil && *utils.Cfg.ElasticSearchSettings.EnableIndexing {
+		if esInterface != nil && *utils.Cfg.ElasticsearchSettings.EnableIndexing {
 			go func() {
 				if rchannel := <-Srv.Store.Channel().GetForPost(rpost.Id); rchannel.Err != nil {
-					l4g.Error("Couldn't get channel %v for post %v for ElasticSearch indexing.", rpost.ChannelId, rpost.Id)
+					l4g.Error("Couldn't get channel %v for post %v for Elasticsearch indexing.", rpost.ChannelId, rpost.Id)
 				} else {
 					esInterface.IndexPost(rpost, rchannel.Data.(*model.Channel).TeamId)
 				}
@@ -472,8 +472,8 @@ func DeletePost(postId string) (*model.Post, *model.AppError) {
 		go DeleteFlaggedPosts(post.Id)
 
 		esInterface := einterfaces.GetElasticsearchInterface()
-		if esInterface != nil && *utils.Cfg.ElasticSearchSettings.EnableIndexing {
-			go esInterface.DeletePost(post.Id)
+		if esInterface != nil && *utils.Cfg.ElasticsearchSettings.EnableIndexing {
+			go esInterface.DeletePost(post)
 		}
 
 		InvalidateCacheForChannelPosts(post.ChannelId)
@@ -503,7 +503,7 @@ func SearchPostsInTeam(terms string, userId string, teamId string, isOrSearch bo
 	paramsList := model.ParseSearchParams(terms)
 
 	esInterface := einterfaces.GetElasticsearchInterface()
-	if esInterface != nil && *utils.Cfg.ElasticSearchSettings.EnableSearching && utils.IsLicensed && *utils.License.Features.Elasticsearch {
+	if esInterface != nil && *utils.Cfg.ElasticsearchSettings.EnableSearching && utils.IsLicensed && *utils.License.Features.Elasticsearch {
 		finalParamsList := []*model.SearchParams{}
 
 		for _, params := range paramsList {
@@ -530,6 +530,11 @@ func SearchPostsInTeam(terms string, userId string, teamId string, isOrSearch bo
 
 				finalParamsList = append(finalParamsList, params)
 			}
+		}
+
+		// If the processed search params are empty, return empty search results.
+		if len(finalParamsList) == 0 {
+			return model.NewPostList(), nil
 		}
 
 		// We only allow the user to search in channels they are a member of.

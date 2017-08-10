@@ -421,6 +421,7 @@ func getClientConfig(c *model.Config) map[string]string {
 	props["EnableOnlyAdminIntegrations"] = strconv.FormatBool(*c.ServiceSettings.EnableOnlyAdminIntegrations)
 	props["EnablePostUsernameOverride"] = strconv.FormatBool(c.ServiceSettings.EnablePostUsernameOverride)
 	props["EnablePostIconOverride"] = strconv.FormatBool(c.ServiceSettings.EnablePostIconOverride)
+	props["EnableUserAccessTokens"] = strconv.FormatBool(*c.ServiceSettings.EnableUserAccessTokens)
 	props["EnableLinkPreviews"] = strconv.FormatBool(*c.ServiceSettings.EnableLinkPreviews)
 	props["EnableTesting"] = strconv.FormatBool(c.ServiceSettings.EnableTesting)
 	props["EnableDeveloper"] = strconv.FormatBool(*c.ServiceSettings.EnableDeveloper)
@@ -452,6 +453,8 @@ func getClientConfig(c *model.Config) map[string]string {
 	props["SupportEmail"] = *c.SupportSettings.SupportEmail
 
 	props["EnableFileAttachments"] = strconv.FormatBool(*c.FileSettings.EnableFileAttachments)
+	props["EnableMobileFileUpload"] = strconv.FormatBool(*c.FileSettings.EnableMobileUpload)
+	props["EnableMobileFileDownload"] = strconv.FormatBool(*c.FileSettings.EnableMobileDownload)
 	props["EnablePublicLink"] = strconv.FormatBool(c.FileSettings.EnablePublicLink)
 
 	props["WebsocketPort"] = fmt.Sprintf("%v", *c.ServiceSettings.WebsocketPort)
@@ -536,11 +539,6 @@ func getClientConfig(c *model.Config) map[string]string {
 			props["PasswordRequireSymbol"] = strconv.FormatBool(*c.PasswordSettings.Symbol)
 		}
 
-		if *License.Features.Elasticsearch {
-			props["ElasticSearchEnableIndexing"] = strconv.FormatBool(*c.ElasticSearchSettings.EnableIndexing)
-			props["ElasticSearchEnableSearching"] = strconv.FormatBool(*c.ElasticSearchSettings.EnableSearching)
-		}
-
 		if *License.Features.Announcement {
 			props["EnableBanner"] = strconv.FormatBool(*c.AnnouncementSettings.EnableBanner)
 			props["BannerText"] = *c.AnnouncementSettings.BannerText
@@ -616,14 +614,8 @@ func Desanitize(cfg *model.Config) {
 		cfg.SqlSettings.AtRestEncryptKey = Cfg.SqlSettings.AtRestEncryptKey
 	}
 
-	if *cfg.ElasticSearchSettings.ConnectionUrl == model.FAKE_SETTING {
-		*cfg.ElasticSearchSettings.ConnectionUrl = *Cfg.ElasticSearchSettings.ConnectionUrl
-	}
-	if *cfg.ElasticSearchSettings.Username == model.FAKE_SETTING {
-		*cfg.ElasticSearchSettings.Username = *Cfg.ElasticSearchSettings.Username
-	}
-	if *cfg.ElasticSearchSettings.Password == model.FAKE_SETTING {
-		*cfg.ElasticSearchSettings.Password = *Cfg.ElasticSearchSettings.Password
+	if *cfg.ElasticsearchSettings.Password == model.FAKE_SETTING {
+		*cfg.ElasticsearchSettings.Password = *Cfg.ElasticsearchSettings.Password
 	}
 
 	for i := range cfg.SqlSettings.DataSourceReplicas {

@@ -258,6 +258,21 @@ export default class AdminSidebar extends React.Component {
             />
         );
 
+        let elasticSearchSettings = null;
+        if (window.mm_license.IsLicensed === 'true') {
+            elasticSearchSettings = (
+                <AdminSidebarSection
+                    name='elasticsearch'
+                    title={
+                        <FormattedMessage
+                            id='admin.sidebar.elasticsearch'
+                            defaultMessage='Elasticsearch (Beta)'
+                        />
+                    }
+                />
+            );
+        }
+
         return (
             <div className='admin-sidebar'>
                 <AdminSidebarHeader/>
@@ -507,6 +522,15 @@ export default class AdminSidebar extends React.Component {
                                         />
                                     }
                                 />
+                                <AdminSidebarSection
+                                    name='jira'
+                                    title={
+                                        <FormattedMessage
+                                            id='admin.sidebar.jira'
+                                            defaultMessage='JIRA (Beta)'
+                                        />
+                                    }
+                                />
                                 {webrtcSettings}
                                 <AdminSidebarSection
                                     name='external'
@@ -618,6 +642,7 @@ export default class AdminSidebar extends React.Component {
                                         />
                                     }
                                 />
+                                {elasticSearchSettings}
                                 <AdminSidebarSection
                                     name='developer'
                                     title={

@@ -11,15 +11,16 @@ import TeamStore from 'stores/team_store.jsx';
 import {loadNewDMIfNeeded, loadNewGMIfNeeded} from 'actions/user_actions.jsx';
 import {sendDesktopNotification} from 'actions/notification_actions.jsx';
 
-import Constants from 'utils/constants.jsx';
-const ActionTypes = Constants.ActionTypes;
+import {ActionTypes, Constants} from 'utils/constants.jsx';
+import {EMOJI_PATTERN} from 'utils/emoticons.jsx';
+
+import {browserHistory} from 'react-router/es6';
 
 // Redux actions
 import store from 'stores/redux_store.jsx';
 const dispatch = store.dispatch;
 const getState = store.getState;
 
-import {getProfilesByIds} from 'mattermost-redux/actions/users';
 import * as PostActions from 'mattermost-redux/actions/posts';
 import {getMyChannelMember} from 'mattermost-redux/actions/channels';
 
@@ -55,7 +56,7 @@ function completePostReceive(post, websocketMessageProps) {
         PostActions.getPostThread(post.root_id)(dispatch, getState).then(
             (data) => {
                 dispatchPostActions(post, websocketMessageProps);
-                loadProfilesForPosts(data.posts);
+                PostActions.getProfilesAndStatusesForPosts(data.posts, dispatch, getState);
             }
         );
 
@@ -123,7 +124,7 @@ export function getFlaggedPosts() {
                 is_pinned_posts: false
             });
 
-            loadProfilesForPosts(data.posts);
+            PostActions.getProfilesAndStatusesForPosts(data.posts, dispatch, getState);
         }
     ).catch(
         () => {} //eslint-disable-line no-empty-function
@@ -147,32 +148,11 @@ export function getPinnedPosts(channelId = ChannelStore.getCurrentId()) {
                 is_pinned_posts: true
             });
 
-            loadProfilesForPosts(data.posts);
+            PostActions.getProfilesAndStatusesForPosts(data.posts, dispatch, getState);
         }
     ).catch(
         () => {} //eslint-disable-line no-empty-function
     );
-}
-
-export function loadProfilesForPosts(posts) {
-    const profilesToLoad = {};
-    for (const pid in posts) {
-        if (!posts.hasOwnProperty(pid)) {
-            continue;
-        }
-
-        const post = posts[pid];
-        if (!UserStore.hasProfile(post.user_id)) {
-            profilesToLoad[post.user_id] = true;
-        }
-    }
-
-    const list = Object.keys(profilesToLoad);
-    if (list.length === 0) {
-        return;
-    }
-
-    getProfilesByIds(list)(dispatch, getState);
 }
 
 export function addReaction(channelId, postId, emojiName) {
@@ -184,6 +164,15 @@ export function removeReaction(channelId, postId, emojiName) {
 }
 
 export function createPost(post, files, success) {
+    // parse message and emit emoji event
+    const emojis = post.message.match(EMOJI_PATTERN);
+    if (emojis) {
+        for (const emoji of emojis) {
+            const trimmed = emoji.substring(1, emoji.length - 1);
+            emitEmojiPosted(trimmed);
+        }
+    }
+
     PostActions.createPost(post, files)(dispatch, getState).then(() => {
         if (post.root_id) {
             PostStore.storeCommentDraft(post.root_id, null);
@@ -202,6 +191,13 @@ export function updatePost(post, success) {
         (data) => {
             if (data && success) {
                 success();
+            } else {
+                const serverError = getState().requests.posts.editPost.error;
+                AppDispatcher.handleServerAction({
+                    type: ActionTypes.RECEIVED_ERROR,
+                    err: {id: serverError.server_error_id, ...serverError},
+                    method: 'editPost'
+                });
             }
         }
     );
@@ -236,6 +232,18 @@ export function deletePost(channelId, post, success) {
                 data: post
             });
 
+            // Needed for search store
+            AppDispatcher.handleViewAction({
+                type: Constants.ActionTypes.REMOVE_POST,
+                post
+            });
+
+            const {focusedPostId} = getState().views.channel;
+            const channel = getState().entities.channels.channels[post.channel_id];
+            if (post.id === focusedPostId && channel) {
+                browserHistory.push(TeamStore.getCurrentTeamRelativeUrl() + '/channels/' + channel.name);
+            }
+
             if (success) {
                 success();
             }
@@ -252,7 +260,7 @@ export function performSearch(terms, isMentionSearch, success, error) {
                 is_mention_search: isMentionSearch
             });
 
-            loadProfilesForPosts(data.posts);
+            PostActions.getProfilesAndStatusesForPosts(data.posts, dispatch, getState);
 
             if (success) {
                 success(data);
@@ -320,4 +328,26 @@ export function searchForTerm(term) {
         term,
         do_search: true
     });
+}
+
+export function pinPost(postId) {
+    return async (doDispatch, doGetState) => {
+        await PostActions.pinPost(postId)(doDispatch, doGetState);
+
+        AppDispatcher.handleServerAction({
+            type: ActionTypes.RECEIVED_POST_PINNED,
+            postId
+        });
+    };
+}
+
+export function unpinPost(postId) {
+    return async (doDispatch, doGetState) => {
+        await PostActions.unpinPost(postId)(doDispatch, doGetState);
+
+        AppDispatcher.handleServerAction({
+            type: ActionTypes.RECEIVED_POST_UNPINNED,
+            postId
+        });
+    };
 }

@@ -164,7 +164,16 @@ func UpdateTeamMemberRoles(teamId string, userId string, newRoles string) (*mode
 
 	ClearSessionCacheForUser(userId)
 
+	sendUpdatedMemberRoleEvent(userId, member)
+
 	return member, nil
+}
+
+func sendUpdatedMemberRoleEvent(userId string, member *model.TeamMember) {
+	message := model.NewWebSocketEvent(model.WEBSOCKET_EVENT_MEMBERROLE_UPDATED, "", "", userId, nil)
+	message.Add("member", member.ToJson())
+
+	go Publish(message)
 }
 
 func AddUserToTeam(teamId string, userId string, userRequestorId string) (*model.Team, *model.AppError) {
@@ -629,7 +638,7 @@ func InviteNewUsersToTeam(emailList []string, teamId, senderId string) *model.Ap
 	var invalidEmailList []string
 
 	for _, email := range emailList {
-		if ! isTeamEmailAddressAllowed(email) {
+		if !isTeamEmailAddressAllowed(email) {
 			invalidEmailList = append(invalidEmailList, email)
 		}
 	}
@@ -735,6 +744,10 @@ func PermanentDeleteTeam(team *model.Team) *model.AppError {
 	}
 
 	if result := <-Srv.Store.Team().RemoveAllMembersByTeam(team.Id); result.Err != nil {
+		return result.Err
+	}
+
+	if result := <-Srv.Store.Command().PermanentDeleteByTeam(team.Id); result.Err != nil {
 		return result.Err
 	}
 

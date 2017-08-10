@@ -38,8 +38,7 @@ export default class RhsRootPost extends React.Component {
         isFlagged: PropTypes.bool,
         status: PropTypes.string,
         previewCollapsed: PropTypes.string,
-        isBusy: PropTypes.bool,
-        getPostList: PropTypes.func.isRequired
+        isBusy: PropTypes.bool
     }
 
     static defaultProps = {
@@ -160,6 +159,7 @@ export default class RhsRootPost extends React.Component {
         this.setState({showEmojiPicker: false});
         const emojiName = emoji.name || emoji.aliases[0];
         addReaction(this.props.post.channel_id, this.props.post.id, emojiName);
+        this.handleDropdownOpened(false);
     }
 
     getClassName = (post, isSystemMessage) => {
@@ -197,7 +197,6 @@ export default class RhsRootPost extends React.Component {
         const post = this.props.post;
         const user = this.props.user;
         const mattermostLogo = Constants.MATTERMOST_ICON_SVG;
-        var timestamp = user ? user.last_picture_update : 0;
         var channel = ChannelStore.get(post.channel_id);
 
         const isEphemeral = Utils.isPostEphemeral(post);
@@ -226,9 +225,10 @@ export default class RhsRootPost extends React.Component {
                         show={this.state.showEmojiPicker}
                         onHide={this.toggleEmojiPicker}
                         target={() => this.refs.dotMenu}
-                        container={this.props.getPostList}
                         onEmojiClick={this.reactEmojiClick}
                         rightOffset={15}
+                        spaceRequiredAbove={342}
+                        spaceRequiredBelow={342}
                     />
                     <a
                         href='#'
@@ -257,6 +257,8 @@ export default class RhsRootPost extends React.Component {
                 user={user}
                 status={this.props.status}
                 isBusy={this.props.isBusy}
+                isRHS={true}
+                hasMention={true}
             />
         );
         let botIndicator;
@@ -303,19 +305,21 @@ export default class RhsRootPost extends React.Component {
 
         let profilePic = (
             <ProfilePicture
-                src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                src={PostUtils.getProfilePicSrcForPost(post, user)}
                 status={status}
                 width='36'
                 height='36'
                 user={this.props.user}
                 isBusy={this.props.isBusy}
+                isRHS={true}
+                hasMention={true}
             />
         );
 
         if (post.props && post.props.from_webhook) {
             profilePic = (
                 <ProfilePicture
-                    src={PostUtils.getProfilePicSrcForPost(post, timestamp)}
+                    src={PostUtils.getProfilePicSrcForPost(post, user)}
                     width='36'
                     height='36'
                 />
@@ -345,6 +349,8 @@ export default class RhsRootPost extends React.Component {
                         status={status}
                         user={this.props.user}
                         isBusy={this.props.isBusy}
+                        isRHS={true}
+                        hasMention={true}
                     />
                 );
             }
@@ -418,7 +424,13 @@ export default class RhsRootPost extends React.Component {
                             <div className={postClass}>
                                 <PostBodyAdditionalContent
                                     post={post}
-                                    message={<PostMessageContainer post={post}/>}
+                                    message={
+                                        <PostMessageContainer
+                                            post={post}
+                                            isRHS={true}
+                                            hasMention={true}
+                                        />
+                                    }
                                     previewCollapsed={this.props.previewCollapsed}
                                 />
                             </div>

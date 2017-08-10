@@ -332,13 +332,12 @@ func sendNotificationEmail(post *model.Post, user *model.User, channel *model.Ch
 	}
 	if *utils.Cfg.EmailSettings.EnableEmailBatching {
 		var sendBatched bool
-
 		if result := <-Srv.Store.Preference().Get(user.Id, model.PREFERENCE_CATEGORY_NOTIFICATIONS, model.PREFERENCE_NAME_EMAIL_INTERVAL); result.Err != nil {
-			// if the call fails, assume it hasn't been set and use the default
+			// if the call fails, assume it hasn't been set and don't batch notifications for this user
 			sendBatched = false
 		} else {
-			// default to not using batching if the setting is set to immediate
-			sendBatched = result.Data.(model.Preference).Value != model.PREFERENCE_DEFAULT_EMAIL_INTERVAL
+			// if the user has chosen to receive notifications immediately, don't batch them
+			sendBatched = result.Data.(model.Preference).Value != model.PREFERENCE_EMAIL_INTERVAL_NO_BATCHING_SECONDS
 		}
 
 		if sendBatched {
@@ -501,6 +500,15 @@ func sendPushNotification(post *model.Post, user *model.User, channel *model.Cha
 			msg.Message = senderName + ": " + model.ClearMentionTags(post.Message)
 		} else {
 			msg.Message = senderName + userLocale("api.post.send_notifications_and_forget.push_in") + channelName + ": " + model.ClearMentionTags(post.Message)
+		}
+	} else if *utils.Cfg.EmailSettings.PushNotificationContents == model.GENERIC_NO_CHANNEL_NOTIFICATION {
+		if channel.Type == model.CHANNEL_DIRECT {
+			msg.Category = model.CATEGORY_DM
+			msg.Message = senderName + userLocale("api.post.send_notifications_and_forget.push_message")
+		} else if wasMentioned || channel.Type == model.CHANNEL_GROUP {
+			msg.Message = senderName + userLocale("api.post.send_notifications_and_forget.push_mention_no_channel")
+		} else {
+			msg.Message = senderName + userLocale("api.post.send_notifications_and_forget.push_non_mention_no_channel")
 		}
 	} else {
 		if channel.Type == model.CHANNEL_DIRECT {
