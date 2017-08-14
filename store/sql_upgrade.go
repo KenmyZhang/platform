@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	VERSION_4_2_0            = "4.2.0"
 	VERSION_4_1_0            = "4.1.0"
 	VERSION_4_0_0            = "4.0.0"
 	VERSION_3_10_0           = "3.10.0"
@@ -52,6 +53,7 @@ func UpgradeDatabase(sqlStore SqlStore) {
 	UpgradeDatabaseToVersion310(sqlStore)
 	UpgradeDatabaseToVersion40(sqlStore)
 	UpgradeDatabaseToVersion41(sqlStore)
+	UpgradeDatabaseToVersion42(sqlStore)
 
 	// If the SchemaVersion is empty this this is the first time it has ran
 	// so lets set it to the current version.
@@ -281,15 +283,21 @@ func UpgradeDatabaseToVersion40(sqlStore SqlStore) {
 }
 
 func UpgradeDatabaseToVersion41(sqlStore SqlStore) {
-	// TODO: Uncomment following condition when version 4.1.0 is released
-	// if shouldPerformUpgrade(sqlStore, VERSION_4_0_0, VERSION_4_1_0) {
+	if shouldPerformUpgrade(sqlStore, VERSION_4_0_0, VERSION_4_1_0) {
+		// Increase maximum length of the Users table Roles column.
+		if sqlStore.GetMaxLengthOfColumnIfExists("Users", "Roles") != "256" {
+			sqlStore.AlterColumnTypeIfExists("Users", "Roles", "varchar(256)", "varchar(256)")
+		}
 
-	// Increase maximum length of the Users table Roles column.
-	if sqlStore.GetMaxLengthOfColumnIfExists("Users", "Roles") != "256" {
-		sqlStore.AlterColumnTypeIfExists("Users", "Roles", "varchar(256)", "varchar(256)")
+		sqlStore.RemoveTableIfExists("JobStatuses")
+
+		saveSchemaVersion(sqlStore, VERSION_4_1_0)
 	}
+}
 
-	sqlStore.RemoveTableIfExists("JobStatuses")
-	// 	saveSchemaVersion(sqlStore, VERSION_4_1_0)
+func UpgradeDatabaseToVersion42(sqlStore SqlStore) {
+	// TODO: Uncomment following condition when version 4.1.0 is released
+	// if shouldPerformUpgrade(sqlStore, VERSION_4_1_0, VERSION_4_2_0) {
+	// 	saveSchemaVersion(sqlStore, VERSION_4_2_0)
 	// }
 }
