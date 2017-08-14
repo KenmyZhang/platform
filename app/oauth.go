@@ -604,6 +604,10 @@ func GetAuthorizationCode(w http.ResponseWriter, r *http.Request, service string
 		authUrl += "&login_hint=" + utils.UrlEncode(loginHint)
 	}
 
+	if service == "wechat" {
+		authUrl = endpoint + "?appid=" + clientId + "&redirect_uri=" + url.QueryEscape(redirectUri) + "&response_type=code" + "&scope=" + utils.UrlEncode(scope) + "&state=" + url.QueryEscape(state) +"#wechat_redirect"
+		l4g.Debug("Authorize URL:",authUrl)
+	}
 	return authUrl, nil
 }
 
@@ -665,8 +669,15 @@ func AuthorizeOAuthUser(w http.ResponseWriter, r *http.Request, service, code, s
 	p.Set("code", code)
 	p.Set("grant_type", model.ACCESS_TOKEN_GRANT_TYPE)
 	p.Set("redirect_uri", redirectUri)
-
-	req, _ := http.NewRequest("POST", sso.TokenEndpoint, strings.NewReader(p.Encode()))
+	var req *http.Request
+	if service == "wechat" {
+		tokenUrl := sso.TokenEndpoint + "?appid=" + sso.Id + "&secret=" + sso.Secret + "&code=" +code + "&grant_type=authorization_code"
+		l4g.Debug("token Url:", tokenUrl)
+		req, _ = http.NewRequest("POST",tokenUrl,nil)
+		l4g.Debug("token request:", req)
+	} else {
+		req, _ = http.NewRequest("POST", sso.TokenEndpoint, strings.NewReader(p.Encode()))
+	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
@@ -686,8 +697,10 @@ func AuthorizeOAuthUser(w http.ResponseWriter, r *http.Request, service, code, s
 		}
 	}
 
-	if strings.ToLower(ar.TokenType) != model.ACCESS_TOKEN_TYPE {
-		return nil, "", nil, model.NewLocAppError("AuthorizeOAuthUser", "api.user.authorize_oauth_user.bad_token.app_error", nil, "token_type="+ar.TokenType+", response_body="+string(bodyBytes))
+	if service != "wechat" {
+		if strings.ToLower(ar.TokenType) != model.ACCESS_TOKEN_TYPE {
+			return nil, "", nil, model.NewLocAppError("AuthorizeOAuthUser", "api.user.authorize_oauth_user.bad_token.app_error", nil, "token_type="+ar.TokenType+", response_body="+strin(bodyBytes))
+		}		
 	}
 
 	if len(ar.AccessToken) == 0 {
@@ -696,7 +709,16 @@ func AuthorizeOAuthUser(w http.ResponseWriter, r *http.Request, service, code, s
 
 	p = url.Values{}
 	p.Set("access_token", ar.AccessToken)
-	req, _ = http.NewRequest("GET", sso.UserApiEndpoint, strings.NewReader(""))
+
+    if service == "wechat" {
+            UserApiEndpoint := sso.UserApiEndpoint + "?access_token=" + ar.AccessToken + "&openid=" + ar.OpenId
+            l4g.Debug("UserApiEndpoint:", UserApiEndpoint)
+            req, _ = http.NewRequest("GET", UserApiEndpoint, strings.NewReader(""))
+            l4g.Debug("User api request:", req)
+
+    } else {
+            req, _ = http.NewRequest("GET", sso.UserApiEndpoint, strings.NewReader(""))
+    }
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")

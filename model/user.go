@@ -108,7 +108,7 @@ func (u *User) IsValid() *AppError {
 		return InvalidUserError("username", u.Id)
 	}
 
-	if len(u.Email) > USER_EMAIL_MAX_LENGTH || len(u.Email) == 0 {
+	if len(u.Email) > USER_EMAIL_MAX_LENGTH {
 		return InvalidUserError("email", u.Id)
 	}
 
@@ -466,7 +466,9 @@ func (u *User) IsSSOUser() bool {
 }
 
 func (u *User) IsOAuthUser() bool {
-	return u.AuthService == USER_AUTH_SERVICE_GITLAB
+//accurme--
+	return u.AuthService == USER_AUTH_SERVICE_GITLAB || u.AuthService == USER_AUTH_SERVICE_WECHAT
+
 }
 
 func (u *User) IsLDAPUser() bool {

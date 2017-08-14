@@ -29,6 +29,9 @@ const (
 	SERVICE_GOOGLE    = "google"
 	SERVICE_OFFICE365 = "office365"
 
+	SERVICE_WECHAT    = "wechat"
+		
+
 	WEBSERVER_MODE_REGULAR  = "regular"
 	WEBSERVER_MODE_GZIP     = "gzip"
 	WEBSERVER_MODE_DISABLED = "disabled"
@@ -479,6 +482,9 @@ type Config struct {
 	GitLabSettings        SSOSettings
 	GoogleSettings        SSOSettings
 	Office365Settings     SSOSettings
+
+	WeChatSettings		  SSOSettings
+
 	LdapSettings          LdapSettings
 	ComplianceSettings    ComplianceSettings
 	LocalizationSettings  LocalizationSettings
@@ -511,6 +517,10 @@ func (o *Config) GetSSOService(service string) *SSOSettings {
 		return &o.GoogleSettings
 	case SERVICE_OFFICE365:
 		return &o.Office365Settings
+
+	case SERVICE_WECHAT:
+		return &o.WeChatSettings
+	
 	}
 
 	return nil
@@ -1728,6 +1738,11 @@ func (o *Config) Sanitize() {
 
 	if len(o.GitLabSettings.Secret) > 0 {
 		o.GitLabSettings.Secret = FAKE_SETTING
+	}
+
+
+	if len(o.WeChatSettings.Secret) > 0 {
+		o.WeChatSettings.Secret = FAKE_SETTING
 	}
 
 	o.SqlSettings.DataSource = FAKE_SETTING

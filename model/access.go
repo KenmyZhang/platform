@@ -30,6 +30,8 @@ type AccessResponse struct {
 	ExpiresIn    int32  `json:"expires_in"`
 	Scope        string `json:"scope"`
 	RefreshToken string `json:"refresh_token"`
+
+	OpenId		 string `json:"openid"`	
 }
 
 // IsValid validates the AccessData and returns an error if it isn't configured
